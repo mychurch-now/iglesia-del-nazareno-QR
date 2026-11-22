@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Un mensaje para ti</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Plus Jakarta Sans & Lora for warm, modern editorial typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        serif: ['"Lora"', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Use dynamic viewport height for mobile browser compatibility */
+        html, body {
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            touch-action: pan-y;
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: #0f172a;
+        }
+
+        /* Smooth card transitions */
+        .slides-track {
+            display: flex;
+            height: 100%;
+            width: 100%;
+            transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: transform;
+        }
+
+        .slides-track.dragging {
+            transition: none;
+        }
+
+        .slide {
+            flex: 0 0 100%;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Subtle floating animation for decorative elements */
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-10px) scale(1.03); }
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.45; transform: scale(1); }
+            50% { opacity: 0.75; transform: scale(1.08); }
+        }
+
+        @keyframes nudgeRight {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(6px); }
+        }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.85) translateY(12px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .animate-float {
+            animation: floatSlow 6s ease-in-out infinite;
+        }
+
+        .animate-glow {
+            animation: pulseGlow 5s ease-in-out infinite;
+        }
+
+        .animate-nudge {
+            animation: nudgeRight 1.8s ease-in-out infinite;
+        }
+
+        .slide.active .animate-content {
+            animation: popIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        /* Background image styling with subtle zoom on active slide */
+        .slide-bg-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            transition: transform 6s ease-out;
+            z-index: 0;
+        }
+
+        .slide.active .slide-bg-img {
+            transform: scale(1.05);
+        }
+
+        /* Confetti particle styling */
+        .confetti {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            pointer-events: none;
+            z-index: 30;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased text-slate-900 flex items-center justify-center">
+
+    <!-- Main Mobile Container (Centered on desktop, full screen on mobile) -->
+    <main id="app-container" class="relative w-full h-full max-w-md mx-auto overflow-hidden shadow-2xl sm:rounded-3xl sm:h-[92dvh] sm:border sm:border-white/15 bg-white">
+        
+        <!-- Top Story Progress Indicators -->
+        <header class="absolute top-0 left-0 right-0 z-30 pt-4 px-4 pb-6 bg-gradient-to-b from-black/25 to-transparent pointer-events-none">
+            <!-- Progress Bars -->
+            <div class="flex gap-1.5 w-full mb-3" id="progress-container">
+                <div class="h-1 flex-1 rounded-full bg-white/35 overflow-hidden">
+                    <div class="progress-fill h-full bg-white rounded-full transition-all duration-300 w-full"></div>
+                </div>
+                <div class="h-1 flex-1 rounded-full bg-white/35 overflow-hidden">
+                    <div class="progress-fill h-full bg-white rounded-full transition-all duration-300 w-0"></div>
+                </div>
+                <div class="h-1 flex-1 rounded-full bg-white/35 overflow-hidden">
+                    <div class="progress-fill h-full bg-white rounded-full transition-all duration-300 w-0"></div>
+                </div>
+                <div class="h-1 flex-1 rounded-full bg-white/35 overflow-hidden">
+                    <div class="progress-fill h-full bg-white rounded-full transition-all duration-300 w-0"></div>
+                </div>
+                <div class="h-1 flex-1 rounded-full bg-white/35 overflow-hidden">
+                    <div class="progress-fill h-full bg-white rounded-full transition-all duration-300 w-0"></div>
+                </div>
+            </div>
+
+            <!-- Subtle Top Header Tag & QR Button -->
+            <div class="flex items-center justify-between text-white/95">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-300 animate-pulse"></span>
+                    <span class="text-xs font-semibold tracking-wider uppercase drop-shadow-sm">Un mensaje para ti</span>
+                </div>
+                <div class="flex items-center gap-2 pointer-events-auto">
+                    <span id="slide-counter" class="text-xs font-medium bg-black/20 backdrop-blur-md px-2.5 py-1 rounded-full">1 / 5</span>
+                    <button type="button" onclick="openQrModal()" aria-label="Mostrar código QR" class="flex items-center gap-1.5 text-xs font-semibold bg-black/35 hover:bg-black/55 backdrop-blur-md border border-white/25 px-2.5 py-1 rounded-full text-white shadow-sm active:scale-95 transition-all">
+                        <svg class="w-3.5 h-3.5 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
+                        </svg>
+                        <span>QR</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- QR Code Modal Overlay -->
+        <div id="qr-modal" onclick="if(event.target === this) closeQrModal()" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-6">
+            <div class="relative w-full max-w-xs rounded-3xl bg-white p-6 text-center shadow-2xl border border-white/20 space-y-4">
+                <button type="button" onclick="closeQrModal()" aria-label="Cerrar QR" class="absolute top-3.5 right-3.5 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+
+                <div class="space-y-1 pt-1">
+                    <span class="inline-block text-[11px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                        Comparte este mensaje
+                    </span>
+                    <h3 class="text-lg font-extrabold text-slate-900">Escanea el código QR</h3>
+                </div>
+
+                <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-center">
+                    <img id="qr-image" src="" alt="Código QR de la página" class="w-52 h-52 rounded-xl object-contain">
+                </div>
+
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    Apunta con la cámara de otro teléfono para abrir este mensaje.
+                </p>
+            </div>
+        </div>
+
+        <!-- Swipeable Slides Track -->
+        <div id="slides-track" class="slides-track">
+
+            <!-- ================= SCREEN 1 ================= -->
+            <section class="slide active flex flex-col justify-between px-6 pt-24 pb-8 bg-gradient-to-br from-amber-700 via-stone-800 to-neutral-950 text-white" data-index="0">
+                <!-- Background Image: Persona quieta en medio de la multitud -->
+                <img src="img/slide1-multitud.jpg" alt="Persona en medio de la multitud" class="slide-bg-img" onerror="this.style.display='none'">
+                <!-- Dark Gradient Overlay for Crisp Readability -->
+                <div class="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/85 z-[1] pointer-events-none"></div>
+
+                <!-- Main Text Content -->
+                <div class="relative z-10 my-auto space-y-4 animate-content">
+                    <span class="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-amber-500/25 backdrop-blur-md border border-amber-300/30 text-amber-200">
+                        Para ti
+                    </span>
+                    <h1 class="text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight drop-shadow-md">
+                        1. Nunca fuiste una casualidad
+                    </h1>
+                    <p class="text-base sm:text-lg font-medium text-white/95 leading-relaxed drop-shadow-sm">
+                        Tu vida tiene valor. Dios te conoce, te ama y tiene un propósito para ti.
+                    </p>
+
+                    <!-- Full Bible Verse Card -->
+                    <div class="pt-1">
+                        <div class="p-4 rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 shadow-lg space-y-2">
+                            <div class="flex items-center gap-2 text-amber-300">
+                                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                                </svg>
+                                <span class="text-xs font-bold uppercase tracking-wider">Jeremías 1:5</span>
+                            </div>
+                            <blockquote class="font-serif italic text-sm sm:text-base text-amber-50/95 leading-relaxed">
+                                «Antes que te formase en el vientre te conocí, y antes que nacieses te santifiqué, te di por profeta a las naciones.»
+                            </blockquote>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Swipe Cue -->
+                <div class="relative z-10 flex items-center justify-between pt-3 border-t border-white/20">
+                    <span class="text-sm font-semibold text-white/90 flex items-center gap-2">
+                        Desliza para continuar
+                        <svg class="w-5 h-5 animate-nudge" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                        </svg>
+                    </span>
+                    <button type="button" onclick="nextSlide()" aria-label="Siguiente" class="p-3 rounded-full bg-white text-stone-900 shadow-lg active:scale-95 transition-transform">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ================= SCREEN 2 ================= -->
+            <section class="slide flex flex-col justify-between px-6 pt-24 pb-8 bg-gradient-to-br from-amber-800 via-stone-800 to-slate-900 text-white" data-index="1">
+                <!-- Background Image: Jesús Buen Pastor -->
+                <img src="img/slide2-jesus-pastor.jpg" alt="Jesús el Buen Pastor" class="slide-bg-img" onerror="this.style.display='none'">
+                <div class="absolute inset-0 bg-gradient-to-b from-black/50 via-black/45 to-black/85 z-[1] pointer-events-none"></div>
+
+                <div class="relative z-10 my-auto space-y-4 animate-content">
+                    <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight drop-shadow-md">
+                        2. ¡Te lo presento: Jesús!
+                    </h2>
+                    <p class="text-base sm:text-lg font-medium text-white/95 leading-relaxed drop-shadow-sm">
+                        Él vino a mostrarnos el amor de Dios y acercarnos a Él.
+                    </p>
+
+                    <!-- Full Bible Verse Card -->
+                    <div class="pt-1">
+                        <div class="p-4 rounded-2xl bg-black/45 backdrop-blur-md border border-white/20 shadow-lg space-y-2">
+                            <div class="flex items-center gap-2 text-amber-300">
+                                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                                </svg>
+                                <span class="text-xs font-bold uppercase tracking-wider">Juan 14:6</span>
+                            </div>
+                            <blockquote class="font-serif italic text-sm sm:text-base text-amber-50/95 leading-relaxed">
+                                «Jesús le dijo: Yo soy el camino, y la verdad, y la vida; nadie viene al Padre, sino por mí.»
+                            </blockquote>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Footer -->
+                <div class="relative z-10 flex items-center justify-between pt-3 border-t border-white/20">
+                    <button type="button" onclick="prevSlide()" aria-label="Anterior" class="p-3 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-md active:scale-95 transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                        </svg>
+                    </button>
+                    <span class="text-xs font-medium text-white/80 tracking-wide">Desliza →</span>
+                    <button type="button" onclick="nextSlide()" aria-label="Siguiente" class="p-3 rounded-full bg-white text-stone-900 shadow-lg active:scale-95 transition-transform">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ================= SCREEN 3 ================= -->
+            <section class="slide flex flex-col justify-between px-6 pt-24 pb-8 bg-gradient-to-br from-slate-800 via-slate-900 to-zinc-950 text-white" data-index="2">
+                <!-- Background Image: Cielo con nubes al atardecer -->
+                <img src="img/slide3-cielo-atardecer.jpg" alt="Cielo con nubes" class="slide-bg-img" onerror="this.style.display='none'">
+                <div class="absolute inset-0 bg-gradient-to-b from-black/55 via-black/50 to-black/85 z-[1] pointer-events-none"></div>
+
+                <div class="relative z-10 my-auto space-y-4 animate-content">
+                    <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight drop-shadow-md">
+                        3. Todos hemos fallado alguna vez
+                    </h2>
+                    <p class="text-base sm:text-lg font-medium text-white/95 leading-relaxed drop-shadow-sm">
+                        Ninguno es perfecto. Todos hemos pecado y necesitamos de Dios.
+                    </p>
+
+                    <!-- Full Bible Verse Card -->
+                    <div class="pt-1">
+                        <div class="p-4 rounded-2xl bg-black/45 backdrop-blur-md border border-white/20 shadow-lg space-y-2">
+                            <div class="flex items-center gap-2 text-orange-300">
+                                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                                </svg>
+                                <span class="text-xs font-bold uppercase tracking-wider">Romanos 3:23</span>
+                            </div>
+                            <blockquote class="font-serif italic text-sm sm:text-base text-orange-50/95 leading-relaxed">
+                                «Por cuanto todos pecaron, y están destituidos de la gloria de Dios.»
+                            </blockquote>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Footer -->
+                <div class="relative z-10 flex items-center justify-between pt-3 border-t border-white/20">
+                    <button type="button" onclick="prevSlide()" aria-label="Anterior" class="p-3 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-md active:scale-95 transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                        </svg>
+                    </button>
+                    <span class="text-xs font-medium text-white/80 tracking-wide">Desliza →</span>
+                    <button type="button" onclick="nextSlide()" aria-label="Siguiente" class="p-3 rounded-full bg-white text-slate-900 shadow-lg active:scale-95 transition-transform">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ================= SCREEN 4 ================= -->
+            <section class="slide flex flex-col justify-between px-6 pt-24 pb-8 bg-gradient-to-br from-amber-600 via-yellow-700 to-stone-900 text-white" data-index="3">
+                <!-- Background Image: Pintura dorada de Jesús cargando la cruz -->
+                <img src="img/slide4-cruz-luz.jpg" alt="Jesús cargando la cruz en luz dorada" class="slide-bg-img" onerror="this.style.display='none'">
+                <div class="absolute inset-0 bg-gradient-to-b from-black/45 via-black/45 to-black/85 z-[1] pointer-events-none"></div>
+
+                <div class="relative z-10 my-auto space-y-4 animate-content">
+                    <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight drop-shadow-md">
+                        4. ¡Pero Dios te ama!
+                    </h2>
+                    <p class="text-base sm:text-lg font-medium text-white/95 leading-relaxed drop-shadow-sm">
+                        Por amor, Jesús vino a salvarnos. Si creemos en Él, podemos recibir vida eterna.
+                    </p>
+
+                    <!-- Full Bible Verse Card -->
+                    <div class="pt-1">
+                        <div class="p-4 rounded-2xl bg-black/45 backdrop-blur-md border border-amber-200/25 shadow-lg space-y-2">
+                            <div class="flex items-center gap-2 text-amber-300">
+                                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                                </svg>
+                                <span class="text-xs font-bold uppercase tracking-wider">Juan 3:16</span>
+                            </div>
+                            <blockquote class="font-serif italic text-sm sm:text-base text-amber-50/95 leading-relaxed">
+                                «Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna.»
+                            </blockquote>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Footer -->
+                <div class="relative z-10 flex items-center justify-between pt-3 border-t border-white/20">
+                    <button type="button" onclick="prevSlide()" aria-label="Anterior" class="p-3 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-md active:scale-95 transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                        </svg>
+                    </button>
+                    <span class="text-xs font-medium text-white/85 tracking-wide">Último paso →</span>
+                    <button type="button" onclick="nextSlide()" aria-label="Siguiente" class="p-3 rounded-full bg-white text-amber-800 shadow-lg active:scale-95 transition-transform">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ================= SCREEN 5 (FINAL SCREEN) ================= -->
+            <section id="final-slide" class="slide flex flex-col justify-between px-6 pt-24 pb-8 bg-gradient-to-br from-emerald-800 via-teal-900 to-stone-950 text-white" data-index="4">
+                <!-- Background Image: Caminando hacia la luz en el prado -->
+                <img src="img/slide5-camino-luz.jpg" alt="Caminando hacia la luz" class="slide-bg-img" onerror="this.style.display='none'">
+                <div class="absolute inset-0 bg-gradient-to-b from-black/55 via-black/50 to-black/85 z-[1] pointer-events-none"></div>
+
+                <!-- Iglesia del Nazareno Logo Badge -->
+                <div class="relative z-10 mt-2 flex justify-center animate-content">
+                    <div class="px-5 py-3 rounded-2xl bg-white/95 backdrop-blur-md shadow-xl border border-white/50">
+                        <img src="img/logo-nazareno.jpg" alt="Iglesia del Nazareno" class="h-14 sm:h-16 w-auto object-contain mx-auto" onerror="this.parentElement.style.display='none'">
+                    </div>
+                </div>
+
+                <!-- Final Message Card -->
+                <div class="relative z-10 my-auto text-center space-y-4 animate-content">
+                    <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight tracking-tight drop-shadow-md">
+                        ¡Gracias por leer!
+                    </h2>
+
+                    <div class="p-5 sm:p-6 rounded-3xl bg-black/45 backdrop-blur-md border border-white/25 shadow-xl space-y-4">
+                        <p class="text-base sm:text-lg font-medium text-white leading-relaxed">
+                            Muéstrale esta pantalla al joven que tiene la cajita QR y recibe tu dulce.
+                        </p>
+                        <div class="h-px w-16 mx-auto bg-white/30"></div>
+                        <p class="text-2xl sm:text-3xl font-extrabold text-amber-300 tracking-tight flex items-center justify-center gap-2">
+                            <span>Dios te ama.</span>
+                            <svg class="w-6 h-6 text-rose-400 animate-bounce" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+                            </svg>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Restart Button -->
+                <div class="relative z-10 flex flex-col items-center gap-2 pt-2">
+                    <button type="button" onclick="goToSlide(0)" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/20 hover:bg-white/30 border border-white/30 text-sm font-semibold text-white backdrop-blur-md active:scale-95 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                        Volver a leer
+                    </button>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script>
+        /**
+         * Interactive Story / Swipeable Cards Controller
+         * Handles touch drag gestures, mouse drag, keyboard arrows, and progress bar updates.
+         */
+        const track = document.getElementById('slides-track');
+        const slides = Array.from(document.querySelectorAll('.slide'));
+        const progressFills = Array.from(document.querySelectorAll('.progress-fill'));
+        const slideCounter = document.getElementById('slide-counter');
+        const appContainer = document.getElementById('app-container');
+        const qrModal = document.getElementById('qr-modal');
+        const qrImage = document.getElementById('qr-image');
+
+        const totalSlides = slides.length;
+        let currentIndex = 0;
+        let confettiTriggered = false;
+
+        // Touch & Pointer Drag State
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let currentTranslate = 0;
+        let prevTranslate = 0;
+        let isHorizontalSwipe = null;
+
+        /**
+         * QR Modal Controls
+         */
+        function openQrModal() {
+            const currentUrl = window.location.href;
+            qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=8&data=${encodeURIComponent(currentUrl)}`;
+            qrModal.classList.remove('hidden');
+            qrModal.classList.add('flex');
+        }
+
+        function closeQrModal() {
+            qrModal.classList.add('hidden');
+            qrModal.classList.remove('flex');
+        }
+
+        /**
+         * Updates active slide classes, progress indicators, and triggers celebration on final screen
+         */
+        function updateUI() {
+            const containerWidth = appContainer.offsetWidth;
+            currentTranslate = -currentIndex * containerWidth;
+            prevTranslate = currentTranslate;
+            track.style.transform = `translateX(${currentTranslate}px)`;
+
+            // Update active slide for entry animations
+            slides.forEach((slide, idx) => {
+                if (idx === currentIndex) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+
+            // Update Instagram-style top story bars
+            progressFills.forEach((fill, idx) => {
+                if (idx <= currentIndex) {
+                    fill.style.width = '100%';
+                } else {
+                    fill.style.width = '0%';
+                }
+            });
+
+            // Update counter badge
+            slideCounter.textContent = `${currentIndex + 1} / ${totalSlides}`;
+
+            // Trigger celebratory confetti when reaching Screen 5
+            if (currentIndex === totalSlides - 1 && !confettiTriggered) {
+                confettiTriggered = true;
+                launchConfetti();
+            } else if (currentIndex === 0) {
+                confettiTriggered = false;
+            }
+        }
+
+        function goToSlide(index) {
+            currentIndex = Math.max(0, Math.min(index, totalSlides - 1));
+            track.classList.remove('dragging');
+            updateUI();
+        }
+
+        function nextSlide() {
+            if (currentIndex < totalSlides - 1) {
+                goToSlide(currentIndex + 1);
+            }
+        }
+
+        function prevSlide() {
+            if (currentIndex > 0) {
+                goToSlide(currentIndex - 1);
+            }
+        }
+
+        // Touch Events for smooth native-feeling mobile swipe
+        track.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) return;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            isDragging = true;
+            isHorizontalSwipe = null;
+            track.classList.add('dragging');
+        }, { passive: true });
+
+        track.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const currentX = e.touches[0].clientX;
+            const currentY = e.touches[0].clientY;
+            const diffX = currentX - startX;
+            const diffY = currentY - startY;
+
+            // Determine swipe direction lock on first move
+            if (isHorizontalSwipe === null) {
+                isHorizontalSwipe = Math.abs(diffX) > Math.abs(diffY);
+            }
+
+            if (isHorizontalSwipe) {
+                // Add rubber-band resistance at first and last slides
+                let resistedDiff = diffX;
+                if ((currentIndex === 0 && diffX > 0) || (currentIndex === totalSlides - 1 && diffX < 0)) {
+                    resistedDiff = diffX * 0.3;
+                }
+                const translate = prevTranslate + resistedDiff;
+                track.style.transform = `translateX(${translate}px)`;
+            }
+        }, { passive: true });
+
+        track.addEventListener('touchend', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            track.classList.remove('dragging');
+
+            if (!isHorizontalSwipe) return;
+
+            const endX = e.changedTouches[0].clientX;
+            const movedBy = endX - startX;
+            const threshold = appContainer.offsetWidth * 0.18; // 18% swipe threshold
+
+            if (movedBy < -threshold && currentIndex < totalSlides - 1) {
+                currentIndex++;
+            } else if (movedBy > threshold && currentIndex > 0) {
+                currentIndex--;
+            }
+
+            updateUI();
+        });
+
+        // Mouse Drag Support (for desktop testing)
+        track.addEventListener('mousedown', (e) => {
+            if (e.target.closest('button')) return;
+            startX = e.clientX;
+            isDragging = true;
+            track.classList.add('dragging');
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const diffX = e.clientX - startX;
+            let resistedDiff = diffX;
+            if ((currentIndex === 0 && diffX > 0) || (currentIndex === totalSlides - 1 && diffX < 0)) {
+                resistedDiff = diffX * 0.3;
+            }
+            track.style.transform = `translateX(${prevTranslate + resistedDiff}px)`;
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            track.classList.remove('dragging');
+
+            const movedBy = e.clientX - startX;
+            const threshold = appContainer.offsetWidth * 0.15;
+
+            if (movedBy < -threshold && currentIndex < totalSlides - 1) {
+                currentIndex++;
+            } else if (movedBy > threshold && currentIndex > 0) {
+                currentIndex--;
+            }
+            updateUI();
+        });
+
+        // Keyboard Arrow Support & Escape for QR Modal
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeQrModal();
+                return;
+            }
+            if (!qrModal.classList.contains('hidden')) return;
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            }
+        });
+
+        // Recalculate slide position cleanly on window resize
+        window.addEventListener('resize', () => {
+            track.classList.add('dragging');
+            updateUI();
+            requestAnimationFrame(() => track.classList.remove('dragging'));
+        });
+
+        /**
+         * Lightweight celebratory confetti burst for the final screen
+         */
+        function launchConfetti() {
+            const finalSlide = document.getElementById('final-slide');
+            const colors = ['#fde047', '#ffffff', '#fda4af', '#6ee7b7', '#fed7aa'];
+            const particleCount = 45;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('confetti');
+                
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                const startLeft = 10 + Math.random() * 80; // %
+                const size = 6 + Math.random() * 6;
+                
+                particle.style.backgroundColor = color;
+                particle.style.left = `${startLeft}%`;
+                particle.style.top = `-12px`;
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size * (Math.random() > 0.5 ? 1 : 1.6)}px`;
+                particle.style.opacity = '0.95';
+
+                finalSlide.appendChild(particle);
+
+                const duration = 1800 + Math.random() * 1400;
+                const driftX = (Math.random() - 0.5) * 140;
+                const rotation = (Math.random() - 0.5) * 720;
+
+                const anim = particle.animate([
+                    { transform: 'translate3d(0, 0, 0) rotate(0deg)', opacity: 1 },
+                    { transform: `translate3d(${driftX}px, ${appContainer.offsetHeight * 0.85}px, 0) rotate(${rotation}deg)`, opacity: 0 }
+                ], {
+                    duration: duration,
+                    easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                    delay: Math.random() * 350
+                });
+
+                anim.onfinish = () => particle.remove();
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', updateUI);
+    </script>
+</body>
+</html>
